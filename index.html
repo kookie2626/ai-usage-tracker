@@ -51,15 +51,17 @@
         .btn:hover { opacity: 0.9; transform: translateY(-1px); }
         .btn:active { transform: translateY(0); }
 
-        .budget-edit { display: flex; align-items: center; gap: 6px; }
-        .budget-input { 
-            background: var(--bg-card); border: 1px solid var(--border-color); 
-            color: white; width: 65px; padding: 4px 8px; border-radius: 6px; 
-            font-size: 12px; font-family: inherit; outline: none;
-            transition: border-color 0.2s;
+
+        .update-banner {
+            background: linear-gradient(135deg, #059669, #10B981);
+            color: white; padding: 10px; border-radius: 10px; margin-bottom: 12px;
+            font-size: 12px; font-weight: 600; text-align: center; cursor: pointer;
+            display: none; animation: popIn 0.3s ease-out;
         }
-        .budget-input:focus { border-color: var(--overview-color); }
-        .budget-label { color: var(--text-tertiary); font-size: 13px; font-weight: 500; }
+        @keyframes popIn {
+            0% { opacity: 0; transform: translateY(-10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -82,6 +84,11 @@
             </div>
 
             <div class="content">
+                <!-- Update Banner -->
+                <div class="update-banner" id="update-banner" onclick="installUpdate()">
+                    ✨ New update available! Click to restart & install.
+                </div>
+
                 <!-- Summary Card -->
                 <div class="summary-card">
                     <div class="section-header" style="margin-bottom: 8px;">
@@ -89,16 +96,8 @@
                             <h2 id="section-title">Monthly Spend</h2>
                             <span class="subtitle" id="current-month">...</span>
                         </div>
-                        <div class="budget-edit">
-                            <span class="budget-label">$</span>
-                            <input type="number" id="budget-input" class="budget-input" value="50" onchange="updateBudget()">
-                        </div>
                     </div>
                     <div class="summary-spend" id="total-spend-big">$0.00</div>
-                    <div class="summary-budget" id="total-spend-detail">of $50.00 budget</div>
-                    <div class="progress-bar" style="margin-top: 10px;">
-                        <div class="progress-fill overview-color" id="total-progress" style="width: 0%;"></div>
-                    </div>
                 </div>
 
                 <!-- Usage Breakdown -->
@@ -168,16 +167,9 @@
     <script>
         document.getElementById('current-month').textContent = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
         
-        let currentBudget = 50.0;
         let savedKeys = [];
-        let globalData = { total_spend: 0, budget: 50.0, models: [] };
+        let globalData = { total_spend: 0, models: [] };
         let currentTab = 'overview';
-
-        function updateBudget() {
-            currentBudget = parseFloat(document.getElementById('budget-input').value) || 0;
-            if (window.electronAPI) window.electronAPI.saveBudget(currentBudget);
-            renderFilteredData();
-        }
 
         function switchTab(tabName) {
             currentTab = tabName;
@@ -211,9 +203,6 @@
             
             // Update summary card
             document.getElementById('total-spend-big').textContent = `$${tabSpend.toFixed(2)}`;
-            document.getElementById('total-spend-detail').textContent = `of $${currentBudget.toFixed(2)} budget`;
-            const percent = Math.min((tabSpend / currentBudget) * 100, 100);
-            document.getElementById('total-progress').style.width = `${percent}%`;
             
             // Update section title based on tab
             const titles = { overview: 'Monthly Spend', openai: 'OpenAI Spend', claude: 'Claude Spend', gemini: 'Gemini Spend' };
@@ -230,7 +219,7 @@
             }
 
             filteredModels.forEach(model => {
-                const modelPercent = Math.min((model.spend / currentBudget) * 100, 100);
+                const modelPercent = tabSpend > 0 ? Math.min((model.spend / tabSpend) * 100, 100) : 0;
                 const colorClass = getColorClass(model.name);
                 
                 let balanceHtml = '';
@@ -388,12 +377,17 @@
             if (window.electronAPI) window.electronAPI.quitApp();
         }
 
+        function installUpdate() {
+            if (window.electronAPI) window.electronAPI.installUpdate();
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             if (window.electronAPI) {
-                window.electronAPI.loadBudget().then(b => {
-                    currentBudget = b;
-                    document.getElementById('budget-input').value = b;
-                    refreshData();
+                refreshData();
+                window.electronAPI.onUpdateDownloaded(() => {
+                    const banner = document.getElementById('update-banner');
+                    banner.style.display = 'block';
+                    sendResize();
                 });
             }
         });

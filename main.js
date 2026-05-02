@@ -1,5 +1,6 @@
 const { app, ipcMain, BrowserWindow } = require('electron');
 const { menubar } = require('menubar');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 
@@ -25,6 +26,18 @@ const mb = menubar({
 
 mb.on('ready', () => {
     console.log('Menubar app is ready.');
+    
+    // Check for updates on startup
+    autoUpdater.checkForUpdatesAndNotify();
+    
+    // Optional: Log update events
+    autoUpdater.on('update-available', () => console.log('Update available.'));
+    autoUpdater.on('update-downloaded', () => {
+        console.log('Update downloaded. It will be installed on restart.');
+        if (mb.window) {
+            mb.window.webContents.send('update-downloaded');
+        }
+    });
 });
 
 // =============================================
@@ -174,7 +187,7 @@ ipcMain.handle('get-usage-data', async () => {
 
     const data = {
         total_spend: 0.0,
-        budget: settings.budget || 50.0,
+
         models: []
     };
 
@@ -200,7 +213,7 @@ function getSettings() {
             return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
         }
     } catch (e) {}
-    return { keys: [], budget: 50.0 };
+    return { keys: [] };
 }
 
 function saveSettings(settings) {
@@ -218,16 +231,7 @@ ipcMain.handle('save-keys', (event, keys) => {
     return true;
 });
 
-ipcMain.handle('load-budget', () => {
-    return getSettings().budget || 50.0;
-});
 
-ipcMain.handle('save-budget', (event, budget) => {
-    const settings = getSettings();
-    settings.budget = parseFloat(budget);
-    saveSettings(settings);
-    return true;
-});
 
 // =============================================
 // 로그인 인증 (OpenAI = 세션토큰 캡처, Anthropic = URL 감지)
@@ -399,4 +403,8 @@ ipcMain.handle('resize-window', (event, width, height) => {
 
 ipcMain.handle('quit-app', () => {
     app.quit();
+});
+
+ipcMain.handle('install-update', () => {
+    autoUpdater.quitAndInstall();
 });
