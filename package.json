@@ -22,7 +22,9 @@
         "zip"
       ],
       "icon": "iconTemplate@2x.png",
-      "LSUIElement": true
+      "extendInfo": {
+        "LSUIElement": true
+      }
     },
     "dmg": {
       "title": "Install AI Usage Tracker",
